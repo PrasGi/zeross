@@ -1,0 +1,41 @@
+{
+  "name": "zeross-cli",
+  "version": "0.1.0",
+  "description": "Team-standard Claude Code workflow toolkit: skills, commands, rules, hooks and MCP setup for efficient, secure and accurate work.",
+  "license": "MIT",
+  "author": "Prasetyo Putra Pratama",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "workflow",
+    "mcp",
+    "skills"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PrasGi/zeross.git"
+  },
+  "homepage": "https://github.com/PrasGi/zeross#readme",
+  "bugs": {
+    "url": "https://github.com/PrasGi/zeross/issues"
+  },
+  "type": "module",
+  "bin": {
+    "zeross": "bin/zeross.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "templates/"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "scripts": {
+    "test": "node --test"
+  }
+}

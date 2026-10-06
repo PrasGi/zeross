@@ -1,0 +1,372 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zeross.dev/schema/config.v1.json",
+  "title": "zeross team config",
+  "description": "Team-wide zeross settings. Committed. Never put secrets or connection strings here.",
+  "type": "object",
+  "required": [
+    "schemaVersion"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "monorepo": {
+          "type": "boolean"
+        },
+        "apps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "path",
+              "kind"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string",
+                "description": "Relative to the project root. Commands run from here."
+              },
+              "kind": {
+                "enum": [
+                  "frontend",
+                  "backend",
+                  "fullstack",
+                  "library",
+                  "mobile"
+                ]
+              },
+              "stack": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "packageManager": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "docsPath": {
+                "type": "string",
+                "description": "Overrides docs.path for this app."
+              },
+              "test": {
+                "type": "object",
+                "properties": {
+                  "runner": {
+                    "type": "string"
+                  },
+                  "command": {
+                    "type": "string",
+                    "description": "{files} = related test files (or Go package paths), relative to path."
+                  }
+                }
+              },
+              "lint": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  }
+                }
+              },
+              "dev": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "command": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "tickets": {
+      "type": "object",
+      "properties": {
+        "platforms": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "jira",
+              "github"
+            ]
+          }
+        },
+        "jira": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "site": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "projectKeys": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9]+$"
+              }
+            }
+          }
+        },
+        "github": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "repo": {
+              "type": "string",
+              "pattern": "^[\\w.-]+/[\\w.-]+$"
+            }
+          }
+        }
+      }
+    },
+    "git": {
+      "type": "object",
+      "properties": {
+        "baseBranch": {
+          "type": "string"
+        },
+        "protectedBranches": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "branchPattern": {
+          "type": "object",
+          "properties": {
+            "fix": {
+              "type": "string"
+            },
+            "feature": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "pr": {
+      "type": "object",
+      "properties": {
+        "defaultReviewers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "closeKeywords": {
+          "type": "boolean",
+          "description": "false → 'Refs', never Closes/Fixes/Resolves."
+        },
+        "attributionFooter": {
+          "type": "boolean",
+          "description": "true → append '🤖 Generated with Claude Code (zeross)' to PR bodies and commit messages."
+        },
+        "draftByDefault": {
+          "type": "boolean"
+        },
+        "commentOnTicket": {
+          "enum": [
+            "ask",
+            "always",
+            "never"
+          ]
+        }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "properties": {
+        "packs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "strictness": {
+          "enum": [
+            "strict",
+            "standard"
+          ]
+        },
+        "commentPolicy": {
+          "enum": [
+            "none",
+            "exported",
+            "every-component"
+          ]
+        },
+        "testPolicy": {
+          "enum": [
+            "logic-and-components",
+            "logic-only"
+          ]
+        },
+        "scopes": {
+          "type": "object",
+          "description": "Optional path scoping per rule pack (monorepo). Pack name → project-relative globs, written as `paths:` frontmatter in .claude/rules/zeross/<pack>.md. Packs without an entry load at session start.",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          }
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "properties": {
+        "designSystem": {
+          "type": "object",
+          "properties": {
+            "exists": {
+              "type": "boolean"
+            },
+            "paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "notes": {
+              "type": "string"
+            }
+          }
+        },
+        "breakpoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "width",
+              "height"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "width": {
+                "type": "integer"
+              },
+              "height": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "darkMode": {
+          "type": "boolean"
+        },
+        "i18n": {
+          "type": "boolean"
+        },
+        "extraRules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Free-text UI rules, rendered into .claude/rules/zeross/ui.md."
+        }
+      }
+    },
+    "hooks": {
+      "type": "object",
+      "properties": {
+        "guard": {
+          "type": "boolean",
+          "default": true,
+          "description": "Install the PreToolUse Bash guard hook (zeross-guard.mjs). false → not installed, and zeross update never re-adds it."
+        }
+      }
+    },
+    "docs": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    "db": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "type": {
+          "enum": [
+            "mongodb",
+            "postgres",
+            "mysql"
+          ]
+        },
+        "envFile": {
+          "type": "string",
+          "description": "Parsed, never sourced."
+        },
+        "envVar": {
+          "type": "string",
+          "description": "Variable NAME only, never the value."
+        },
+        "devHosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "mcp": {
+      "type": "object",
+      "properties": {
+        "pins": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "integrations": {
+      "type": "object",
+      "description": "Team-recommended optional helpers; each teammate installs them in /zeross phase 6.",
+      "properties": {
+        "context7": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

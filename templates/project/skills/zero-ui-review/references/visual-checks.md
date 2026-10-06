@@ -7,7 +7,8 @@ names differ by server version; pick by purpose.
 
 Each snippet is a self-contained function: pass it as the `function` argument of the evaluate tool.
 Snippets never modify the page except where noted (scrolling, focus). If you need to keep a snippet
-or a scratch script in a file, put it in the session scratchpad or `$TMPDIR`, never in the repo.
+or a scratch script in a file, put it in the session scratchpad or `$TMPDIR`, never in the repo
+(if the project forbids temp dirs: `.claude/zeross/local/`, which is gitignored).
 
 This file holds the core checks (§1–§4). Contrast, keyboard focus, interactions, dialogs, layout
 shift and dark mode (§5–§10) are in `visual-checks-extra.md`.

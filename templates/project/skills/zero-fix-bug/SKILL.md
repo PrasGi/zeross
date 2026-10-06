@@ -83,7 +83,7 @@ do not offer "stay".
 Per `testing.md` (→ "Prove the test fails"), for each `VALID` ticket:
 
 1. **Test first.** Write or extend the unit regression test for the root cause
-   (unit tests only; no e2e test files, per `testing.md`). Run it with the app's
+   (unit tests; e2e files per `rules.e2e`, see `testing.md`). Run it with the app's
    `test.command` and record the failing output (test name and assertion).
    It passes against the broken code → stop: the test does not cover the bug.
 2. **Fix.** Minimal change within the rule packs; match surrounding code. Use
@@ -108,7 +108,7 @@ task's file list (the review stays inside it):
 ## 7. Validate (Playwright)
 
 Per `browser.md`: rerun the original reproduction, plus one negative path and one
-neighboring path, live through the Playwright MCP (no e2e test files; scratch
+neighboring path, live through the Playwright MCP (e2e files per `rules.e2e`; scratch
 helpers stay outside the repo). Save screenshots to `.playwright-mcp/`. If the
 browser is unavailable, say so and give manual steps — never claim it ran.
 

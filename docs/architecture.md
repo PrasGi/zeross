@@ -86,7 +86,7 @@ Personal / machine (never committed):
 ~/.claude/skills/zeross/SKILL.md          # global orchestrator (/zeross) + .zeross_version
 ~/.claude/skills/zero-indonesia/SKILL.md  # optional
 ~/.claude/zeross/profile.json             # capacity, executor, mcpRoles, device snapshot
-~/.claude/zeross/workspaces.json          # workspace registry for user-scope GitHub/Jira MCP
+~/.claude/zeross/workspaces.json          # workspace registry for user-scope GitHub/Jira MCP (root, github.owner, jira.url)
 ~/.claude/zeross/bin/workspace-mcp.mjs    # one wrapper: `node workspace-mcp.mjs github|jira`
 ~/.claude/zeross/update-check.json        # npm registry check cache (24h)
 ```
@@ -102,10 +102,15 @@ claude mcp add   --scope <user|local> github-zeross -- node ~/.claude/zeross/bin
 ```
 
 Secrets live only in the OS keychain (`security` on macOS, `secret-tool` on
-Linux) and/or a gitignored `.envrc` that reads from the keychain. Service names:
+Linux) and/or a gitignored `.envrc` that reads from the keychain (the zeross block
+starts with a comment line saying the values come from the OS keychain). Service names:
 `zeross-github-<workspace>`, `zeross-jira-<workspace>`, `zeross-test-<project>-<role>`
 (lowercased and sanitized by the CLI; `zeross mcp add … --dry-run --json` reports the
-`keychainService` to use). Keychain refs (`keychain:<service>`) are not secrets and
+`keychainService` to use). `zeross secret set` accepts only names matching
+`^zeross-[a-z0-9]+(-[a-z0-9]+)*$` (no trailing dot or dash) that are referenced by
+`workspaces.json`, `local.json` or a known pattern (`zeross-test-*`, `zeross-context7`),
+unless `--force`; it returns `{ ok, ref, replaced, referencedBy }`. `zeross secret import`
+moves an existing literal token into the keychain without printing it. Keychain refs (`keychain:<service>`) are not secrets and
 may be printed; secret values never are, with one exception:
 `zeross secret reveal <service>` prints a value, **only** for `zeross-test-*`
 services (local test-account passwords, read at typing time per
@@ -123,6 +128,9 @@ zeross never edits any `CLAUDE.md`. Rule packs are native Claude Code rules in
   In a monorepo the installer computes defaults from app kinds (FE packs → FE app
   folders, BE and DB packs → BE app folders); the plan's optional `ruleScopes`
   overrides them and is stored as `config.json → rules.scopes`.
+
+Project rules outside `zeross/` (`existing.projectRules` in `zeross detect`) are
+never touched; `/zeross` offers a custom rule saying the project rule wins on a conflict.
 
 Content says: "Rule packs are auto-loaded by Claude Code from `.claude/rules/zeross/`
 (path-scoped packs load when you touch matching files). Read a pack explicitly only
@@ -174,7 +182,7 @@ user/bin/*.mjs                            → ~/.claude/zeross/bin/
   },
   "git": {
     "baseBranch": "main",
-    "protectedBranches": ["main", "master", "develop"],
+    "protectedBranches": ["main", "master", "develop", "dev"],
     "branchPattern": { "fix": "fix/{ticket}-{slug}", "feature": "feature/{ticket}-{slug}" }
   },
   "pr": {
@@ -189,6 +197,7 @@ user/bin/*.mjs                            → ~/.claude/zeross/bin/
     "strictness": "strict",             // strict | standard
     "commentPolicy": "none",            // none | exported | every-component
     "testPolicy": "logic-and-components", // logic-and-components | logic-only
+    "e2e": "none",                      // none (team rule: no new e2e files) | follow-project
     "scopes": { "fe-react-next": ["apps/web/**"] } // optional; pack → globs (`paths:`); monorepo only
   },
   "hooks": { "guard": true },           // PreToolUse Bash guard; false → not installed, never re-added by update
@@ -277,10 +286,46 @@ persisted.
   `zero-build-small-feature` and `zero-build-feature` pull in `zero-docs-writer`,
   `zero-security-review`, `zero-ui-review` and `zero-learn`; `zero-create-pr` pulls
   in `zero-pr-description`. The apply output lists them as `autoIncluded`.
+- `rules.e2e`: `none` (default) keeps the team rule (no new e2e test files);
+  `follow-project` applies the project's existing e2e conventions (only the related
+  spec is ever run, never a whole e2e suite).
 - `zeross update diff` reports `pinBumps` (applied only with `--bump-pins`) and, on
   the `files[]` entry for `.claude/zeross/config.json`, `newKeys`; `update apply`
   adds new keys with their defaults (add-only) and re-renders `ui.md` from
   `config.json → ui`.
+
+## CLI output contracts (`--json`)
+
+- **`zeross detect`**:
+  - `db.candidates[].envCandidates[].hostClass`: `local | docker | remote | production | unknown` (host values are never printed)
+  - `tickets.jira.projectKeys`: filtered to keys with ≥25% of the top key's count (branch names weigh more)
+  - `git: { defaultBranch, branches, recommendedBase }`
+  - `apps[].test.configs` (extra vitest/jest config files); `apps[].lint` falls back to the root ESLint config; `apps/*` workers with dev/start scripts get `kind: "backend"`
+  - `designSystemCandidates` (incl. token files such as `tokens.css`), `ui: { darkModeHint, i18nHint }`, `loginRouteCandidates`
+  - `existing.projectRules` (non-zeross `.claude/rules/*.md`), `existing.e2e: { detected, signals }`,
+    `existing.denyConflicts: [{ file, rule }]` (deny patterns in `.claude/settings*.json` that match the project itself, e.g. `Write(~/**)`)
+- **`zeross mcp check <role>`**: `equivalents[]` carry `scope`, `file` and `plaintextSecrets` (env var names with literal values);
+  `shadows` / `shadowedBy` appear when the same server name exists in several scopes (project scope wins over user scope once approved).
+- **`zeross mcp test github`**: `--repo` defaults to `config.tickets.github.repo`; `--service <name>` tests a specific keychain item.
+  Adds `tokenKind` (`fine-grained | classic | unknown`, from the prefix only), `source` (`keychain | direnv | env`),
+  `envOverride` (an environment variable with a different value exists; compared by hash), `orgStatus`, and on a 404 a `hint`
+  (resource owner or pending org approval, with the settings URL).
+- **`zeross mcp test jira`**: also checks every `config.tickets.jira.projectKeys` (`projects: { KEY: status }`); `ok` only when all
+  are visible. Adds `source` / `envOverride`.
+- **`zeross mcp add github|jira`**: records `github.owner` / `jira.url` on the workspace and returns
+  `workspace: { name, root, action: "created" | "updated" }` plus `warnings` when the repo owner or Jira site differs from
+  what the workspace already holds.
+- **`zeross verify`**: runs the role auth tests (repo, Jira project keys) unless `--no-mcp`; an MCP "Pending approval" is
+  reported under `actionNeeded`, not as a failure; adds `duplicates` (several active servers per role) and `plaintextSecrets`
+  (MCP configs with literal secret env values: file, server, env names).
+
+## Workspaces (user-scope GitHub/Jira)
+
+- **One workspace = one GitHub org + one Jira site.** Repos of another org or site need their own workspace root
+  (e.g. a sub-folder). `zeross mcp add` warns instead of silently mixing them.
+- `workspace-mcp.mjs` picks the workspace by the longest matching root and resolves credentials in this order:
+  **OS keychain → the workspace root's direnv `.envrc` → the environment**. An ambient shell `GITHUB_PERSONAL_ACCESS_TOKEN`
+  or `JIRA_API_TOKEN` no longer overrides the workspace's keychain item.
 
 ## Cross-file contracts
 
@@ -299,12 +344,14 @@ persisted.
   git, build, test and destructive-action rules live in `rule-packs/core.md`;
   workflow files and skills point there.
 - **Tests vs validation.** Tests are unit tests with edge cases, written first
-  (test → fail → fix → pass). Validation is live through the Playwright MCP. No e2e
-  test files (Playwright `@playwright/test` specs, Cypress, `*.e2e-spec.ts`,
-  supertest suites against the booted app) unless the user explicitly asks;
-  existing ones are updated only when the change breaks them. MCP helper code lives
-  in the session scratchpad or `$TMPDIR`, never in the repo. Canonical:
-  `rule-packs/testing.md`.
+  (test → fail → fix → pass). Validation is live through the Playwright MCP. With
+  `rules.e2e: none` (default): no e2e test files (Playwright `@playwright/test` specs,
+  Cypress, `*.e2e-spec.ts`, supertest suites against the booted app) unless the user
+  explicitly asks; existing ones are updated only when the change breaks them. With
+  `follow-project`: the project's e2e conventions apply, and only the related spec is
+  run. MCP helper code lives in the session scratchpad or `$TMPDIR` (or
+  `.claude/zeross/local/` when the project forbids temp dirs), never elsewhere in the
+  repo. Canonical: `rule-packs/testing.md`.
 - **Docs.** The three fix/build commands always run `zero-docs-writer`: `update` +
   Changelog when the module has a doc; a **stub** (front matter, 2–5 line Overview,
   Changelog entry, `stub: true`) when it has none; a full `create` for a new module

@@ -156,3 +156,37 @@ test("playwright falls back to isolated while the profile lock is live", () => {
   assert.equal(playwright.profileInUse(profile), true);
   assert.equal(playwright.profileInUse(path.join(root, "no-profile")), false);
 });
+
+test("the workspace keychain item beats an ambient token in the environment", () => {
+  const bin = tmp();
+  for (const tool of ["security", "secret-tool"]) {
+    fs.writeFileSync(path.join(bin, tool), "#!/bin/sh\necho keychain-token\n");
+    fs.chmodSync(path.join(bin, tool), 0o755);
+  }
+  const savedPath = process.env.PATH;
+  process.env.PATH = `${bin}${path.delimiter}${savedPath}`;
+  process.env.GITHUB_PERSONAL_ACCESS_TOKEN = "ambient-token";
+  try {
+    const ws = { name: "ws", root: tmp(), github: { service: "zeross-github-ws" } };
+    const [env, missing, source] = workspaceMcp.resolveEnvDetailed(ws, "github");
+    assert.deepEqual(missing, []);
+    assert.equal(env.GITHUB_PERSONAL_ACCESS_TOKEN, "keychain-token");
+    assert.equal(source.GITHUB_PERSONAL_ACCESS_TOKEN, "keychain");
+  } finally {
+    process.env.PATH = savedPath;
+  }
+});
+
+test("the environment is only a last resort", () => {
+  const savedPath = process.env.PATH;
+  process.env.PATH = "/nonexistent";
+  process.env.GITHUB_PERSONAL_ACCESS_TOKEN = "ambient-token";
+  try {
+    const ws = { name: "ws", root: tmp(), github: { service: "zeross-github-ws" } };
+    const [env, , source] = workspaceMcp.resolveEnvDetailed(ws, "github");
+    assert.equal(env.GITHUB_PERSONAL_ACCESS_TOKEN, "ambient-token");
+    assert.equal(source.GITHUB_PERSONAL_ACCESS_TOKEN, "env");
+  } finally {
+    process.env.PATH = savedPath;
+  }
+});

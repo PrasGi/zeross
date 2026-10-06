@@ -10,7 +10,10 @@ How to write, prove and run tests for a change: only the related files, with a p
 - Update tests that assert obsolete behavior. Never delete a test to make the suite pass.
 - Cover each acceptance criterion and each verdict's root cause with at least one test.
 - Follow `.claude/rules/zeross/testing.md` for structure (AAA, naming, mocking).
-- **No e2e test files** (team rule, canonical in `.claude/rules/zeross/testing.md` → "No e2e test files"): tests are unit tests with edge cases; validation runs live through the Playwright MCP (`browser.md`). Never create Playwright/Cypress/supertest e2e files unless the user explicitly asks; update existing ones only when the change breaks them. Scratch helpers for the Playwright MCP live in the session scratchpad or `$TMPDIR`, never in the repo.
+- **E2E tests follow `config.json → rules.e2e`** (canonical in `.claude/rules/zeross/testing.md` → "No e2e test files"):
+  - `none` (default, team rule): tests are unit tests with edge cases; validation runs live through the Playwright MCP (`browser.md`). Never create Playwright/Cypress/supertest e2e files unless the user explicitly asks; update existing ones only when the change breaks them.
+  - `follow-project`: follow the repo's existing e2e conventions when a change calls for an e2e case. Still validate live through the Playwright MCP, and never run a whole e2e suite: only the related spec file(s).
+  - Scratch helpers for the Playwright MCP live in the session scratchpad or `$TMPDIR`, never in the repo. If the project forbids temp dirs, use `.claude/zeross/local/` (gitignored).
 
 ## Edge cases (mandatory)
 
@@ -52,7 +55,7 @@ A regression test is only proof if it fails on the broken behavior. **Test → f
   - tests you added or changed
   - tests of the modules you changed
   - tests of their direct callers when the contract changed
-- **Never run the whole suite. Never add `--coverage`.** Not to "be safe", and not at the end.
+- **Never run the whole suite. Never add `--coverage`.** Not to "be safe", and not at the end. The same holds for e2e suites when `rules.e2e` is `follow-project`: only the related spec.
 - At most `profile.json → capacity.unitTest` test processes at a time across all agents. Default to one.
 - Report the exact commands, the pass/fail counts and any failures honestly. Fix the failures your change introduced. Report pre-existing failures as pre-existing, with evidence: they fail on the base too, or are unrelated.
 

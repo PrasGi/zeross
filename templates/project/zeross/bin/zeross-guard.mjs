@@ -30,7 +30,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 // The script lives at <root>/.claude/zeross/bin/.
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-const DEFAULT_PROTECTED = ["main", "master", "develop"];
+const DEFAULT_PROTECTED = ["main", "master", "develop", "dev"];
 
 const PACKAGE_MANAGERS = new Set(["npm", "pnpm", "yarn", "bun"]);
 const PM_VALUE_FLAGS = new Set(["--filter", "-F", "-C", "--dir", "--prefix", "-w", "--workspace", "--cwd"]);

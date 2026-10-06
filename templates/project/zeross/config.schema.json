@@ -231,6 +231,14 @@
             "logic-only"
           ]
         },
+        "e2e": {
+          "enum": [
+            "none",
+            "follow-project"
+          ],
+          "default": "none",
+          "description": "none → team rule: no new e2e test files (validation runs live through the Playwright MCP). follow-project → the project's existing e2e conventions apply (still only the related spec is run, never a whole e2e suite)."
+        },
         "scopes": {
           "type": "object",
           "description": "Optional path scoping per rule pack (monorepo). Pack name → project-relative globs, written as `paths:` frontmatter in .claude/rules/zeross/<pack>.md. Packs without an entry load at session start.",

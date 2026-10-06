@@ -26,8 +26,9 @@ installed (`method`) and the matching `upgrade` command. Prefer that `upgrade`
 command; the table below is the fallback when `method` is `unknown`.
 
 Up to date → say so and continue to step 3 (templates can still lag the CLI).
-Newer version → explain the upgrade command for the install path, then ask the user
-to run it and re-invoke `/zero-update` (the running CLI must be the new one):
+Newer version → explain the upgrade command for the install path, show it in its own
+fenced code block (never inline before punctuation), then ask the user to run it and
+re-invoke `/zero-update` (the running CLI must be the new one):
 
 | Install path | Upgrade |
 |---|---|
@@ -93,9 +94,13 @@ before it. Afterwards:
 ## 6. Per-user checks
 
 1. `zeross verify --json` → manifest files present, hashes match, the guard hook
-   registered (only when `hooks.guard` is true).
-2. For every role configured in `~/.claude/zeross/profile.json → mcpRoles`:
-   `zeross mcp test <role> --json`. Report Connected / failed per role. A failed
+   registered (only when `hooks.guard` is true), plus the role auth tests (repo,
+   Jira project keys). Report its `actionNeeded` items (e.g. a pending MCP or org
+   approval) apart from failures, and mention `duplicates` and `plaintextSecrets`
+   with a recommendation; never delete or edit those configs yourself.
+2. For every role configured in `~/.claude/zeross/profile.json → mcpRoles` that
+   `verify` did not already test: `zeross mcp test <role> --json`. Report
+   Connected / failed per role. A failed
    role → suggest `/zeross` (per-user setup) to repair it. After a pin bump, remind
    the user to reconnect via `/mcp`.
 3. `zeross doctor --json` → Chromium present for Playwright. Missing → ask, then

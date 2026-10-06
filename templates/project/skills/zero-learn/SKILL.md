@@ -85,10 +85,14 @@ consent.
 - **Rule** → append to `.claude/rules/zeross/custom.md` under the matching heading.
 - **Team config** → a direct edit of `.claude/zeross/config.json` (the previewed
   JSON diff), keeping every other key. Validate against
-  `.claude/zeross/config.schema.json`. For `ui.*` changes, then tell the user to run
-  `zeross update apply` (or `/zero-update`) to re-render
-  `.claude/rules/zeross/ui.md`, and show that diff too. For `rules.packs` or
-  `rules.scopes` changes, re-run `zeross apply` through `/zeross --reconfigure`.
+  `.claude/zeross/config.schema.json`. For `ui.*`, `rules.packs` or `rules.scopes`
+  changes, then run `zeross update apply --json` (or `/zero-update`): it re-renders
+  `.claude/rules/zeross/ui.md` and installs or updates the listed rule packs. Show
+  that diff too.
+  - Example, a design system that did not exist at install: set
+    `ui.designSystem = { "exists": true, "paths": [...], "notes": "..." }`, add
+    `fe-design-system` to `rules.packs` (frontend projects), run
+    `zeross update apply`, then confirm `ui.md` says "Design system in use: Yes".
 - **Personal (project)** → `zeross local set <dotted.key>=<json> --json`; show the
   result with `zeross local get --json`.
 - **Personal (machine)** → `zeross profile set <dotted.key>=<json> --json`; show the
@@ -99,9 +103,32 @@ consent.
   element by index.
 - **Secret**:
   1. Service name = `zeross-test-<project.name>-<role>` for test accounts, in
-     lowercase kebab-case (letters, digits, `.`, `_`, `-` only; the CLI rejects anything else).
-  2. Ask the user to run, **in their own terminal** (not via Claude):
-     `zeross secret set <service>` — it reads the value from stdin with no echo.
+     lowercase kebab-case: it must match `^zeross-[a-z0-9]+(-[a-z0-9]+)*$`, so only
+     lowercase letters, digits and single dashes, with no trailing dot, dash or other
+     punctuation. The CLI rejects anything else, and refuses a service that no
+     workspace, `local.json` or known pattern (`zeross-test-*`, `zeross-context7`)
+     references unless `--force` is given.
+  2. Ask the user to run this **in their own terminal** (not via Claude); it reads
+     the value from stdin with no echo. Always show user-run commands in their own
+     fenced block, never inline before punctuation (a copied trailing `.` creates a
+     wrong keychain item):
+
+     ```bash
+     zeross secret set <service>
+     ```
+
+     When the value already sits in a file (an `.envrc` line, or a literal env value
+     in an MCP config), move it instead of re-typing it; the CLI never prints it:
+
+     ```bash
+     zeross secret import <service> --from-envrc <file> --var <NAME>
+     ```
+
+     ```bash
+     zeross secret import <service> --from-mcp-json <file> --server <name> --env <VAR>
+     ```
+
+     Afterwards, suggest removing the literal value from that file.
   3. After they confirm, run `zeross secret get-ref <service> --json` to verify it
      exists and get the `keychain:<service>` ref.
   4. Store only that ref, e.g. in the account's `passwordRef`, written with the

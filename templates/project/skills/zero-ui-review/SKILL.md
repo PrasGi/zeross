@@ -103,7 +103,7 @@ Preconditions, in order:
 
 1. Resolve the Playwright MCP via `profile.json → mcpRoles.playwright`. If it is not connected, report "visual pass skipped: Playwright MCP unavailable" and continue with static results.
 2. Dev server: check the app's `project.apps[].dev.url` (e.g. `curl -s -o /dev/null -w '%{http_code}' <url>`). If it is down, **ask the user to start it** (show `project.apps[].dev.command`). Never start a build.
-3. Log in per `.claude/zeross/workflow/browser.md` using the fastest method in `knowledge/auth-login.md` and the account from `.claude/zeross/local.json` (`playwright.defaultEmail` / `playwright.accounts`). Never print passwords.
+3. Log in per `.claude/zeross/workflow/browser.md` using the fastest method in `knowledge/auth-login.md` and the account from `.claude/zeross/local.json` (`playwright.defaultEmail` / `playwright.accounts`). Use the login route from `auth-login.md`, or else from `zeross detect --json` → `loginRouteCandidates`, before guessing `/login`. Never print passwords.
 
 For each affected route × each breakpoint (`ui.breakpoints`), follow `visual-checks.md`:
 

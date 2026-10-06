@@ -54,5 +54,5 @@ Applies to: NestJS backends (TypeScript).
 - Unit tests: `Test.createTestingModule` with mocked providers (`useValue`). Test the service logic directly.
 - Controller tests stay unit-level: `Test.createTestingModule` with the controller and mocked services, calling the handler directly. Test DTO validation by running the DTO through `ValidationPipe` (or `validate()` from `class-validator`) with the same options as `main.ts`, and guards by unit-testing `canActivate` with a mocked `ExecutionContext`.
   - Cover: valid, invalid DTO (400/422), unauthenticated (401), forbidden or another user's resource (403/404), not found, conflict.
-- No new e2e suites (`supertest` against `app.getHttpServer()`, `test/*.e2e-spec.ts`) unless the user explicitly asks; see "No e2e test files" in `testing.md`. Update existing ones only when the change breaks them.
+- No new e2e suites (`supertest` against `app.getHttpServer()`, `test/*.e2e-spec.ts`) unless the user explicitly asks or `rules.e2e` is `follow-project`; see "No e2e test files" in `testing.md`. Update existing ones only when the change breaks them.
 - Run single files only (e.g. `pnpm jest src/users/users.service.spec.ts`), using `project.apps[].test.command`.

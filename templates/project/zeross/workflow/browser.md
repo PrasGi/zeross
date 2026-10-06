@@ -12,6 +12,7 @@ How to reproduce and validate in a real browser with the Playwright MCP: safe lo
 ## Login
 
 - Use the **fastest method** listed in `auth-login.md`, e.g. local OTP bypass, dev login route or magic link, before a full password flow.
+- **Login route:** open the login URL recorded in `auth-login.md`. When it is not recorded, use the first matching entry of `zeross detect --json` → `loginRouteCandidates` (e.g. `apps/web/src/app/(auth)/sign-in/page.tsx` → `/sign-in`) before guessing `/login`.
 - **Account:**
   - Use the account whose role matches the ticket, from `.claude/zeross/local.json → playwright.accounts[]`.
   - Otherwise use `playwright.defaultEmail`.
@@ -30,7 +31,7 @@ How to reproduce and validate in a real browser with the Playwright MCP: safe lo
 
 ## Reproduce and validate
 
-Validation is live, through the Playwright MCP. It never produces e2e test files (team rule: `.claude/rules/zeross/testing.md` → "No e2e test files"). Helper code you need to drive the MCP (evaluate snippets, scratch scripts, payload files) goes in the session scratchpad or `$TMPDIR`, never in the repo.
+Validation is live, through the Playwright MCP. It never produces e2e test files by itself; e2e files follow `config.json → rules.e2e` (`.claude/rules/zeross/testing.md` → "No e2e test files"). Helper code you need to drive the MCP (evaluate snippets, scratch scripts, payload files) goes in the session scratchpad or `$TMPDIR`, never in the repo. If the project forbids temp dirs, use `.claude/zeross/local/` (gitignored).
 
 - Follow the intake steps exactly (`tickets.md`): the same role, workspace, data state and URL.
 - **Every validation run covers:**

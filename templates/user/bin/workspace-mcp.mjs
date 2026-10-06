@@ -13,9 +13,9 @@
  * contains the project Claude Code was started in (longest match wins), so one
  * user-scope registration serves every project in that workspace and a token
  * never crosses workspaces. Credentials resolve in this order:
- *     1. already in the environment (e.g. exported by direnv)
- *     2. OS keychain item named in the registry
- *     3. `direnv export json` in the workspace root
+ *     1. OS keychain item named in the registry
+ *     2. `direnv export json` in the workspace root
+ *     3. the ambient environment (last resort, so a global token never beats the workspace's own)
  * Secrets are passed to the server through the environment, never argv, and are
  * never printed.
  *
@@ -184,6 +184,20 @@ export function direnvEnv(root) {
  * @returns {[env: Record<string, string>, missing: string[]]}
  */
 export function resolveEnv(ws, role) {
+  return resolveEnvDetailed(ws, role).slice(0, 2);
+}
+
+/**
+ * Credentials for a workspace, with where each one came from. Order: the
+ * workspace's keychain item → `direnv export` of the workspace root → the
+ * ambient environment. An ambient token (e.g. a global JIRA_API_TOKEN in
+ * ~/.zshrc, or a parent folder's .envrc) must never beat the per-workspace
+ * keychain item, or one workspace's token leaks into another org.
+ * @param {Workspace} ws
+ * @param {string} role
+ * @returns {[Record<string, string>, string[], Record<string, string>]} env, missing names, source per name
+ */
+export function resolveEnvDetailed(ws, role) {
   const root = expandUser(String(ws.root ?? ""));
   const spec = ws[role] || {};
   /** @type {Record<string, string | undefined>} */
@@ -199,24 +213,39 @@ export function resolveEnv(ws, role) {
   }
   /** @type {Record<string, string>} */
   const env = Object.fromEntries(Object.entries(literals).filter(([, v]) => v));
+  /** @type {Record<string, string>} */
+  const source = Object.fromEntries(Object.keys(env).map((k) => [k, "registry"]));
   /** @type {Record<string, string> | null} */
   let fromDirenv = null;
+  const direnvOnce = () => (fromDirenv ??= direnvEnv(root));
   for (const [name, service] of Object.entries(wanted)) {
-    let value = process.env[name] || (service ? keychainGet(service) : null);
-    if (!value) {
-      fromDirenv ??= direnvEnv(root);
-      value = fromDirenv[name];
+    const fromKeychain = service ? keychainGet(service) : null;
+    if (fromKeychain) {
+      env[name] = fromKeychain;
+      source[name] = "keychain";
+      continue;
     }
-    if (value) env[name] = value;
+    const fromDir = direnvOnce()[name];
+    if (fromDir) {
+      env[name] = fromDir;
+      source[name] = "direnv";
+      continue;
+    }
+    if (process.env[name]) {
+      env[name] = /** @type {string} */ (process.env[name]);
+      source[name] = "env";
+    }
   }
   for (const name of Object.keys(literals)) {
-    if (!(name in env)) {
-      fromDirenv ??= direnvEnv(root);
-      if (fromDirenv[name]) env[name] = fromDirenv[name];
+    if (name in env) continue;
+    const fromDir = direnvOnce()[name] || process.env[name];
+    if (fromDir) {
+      env[name] = fromDir;
+      source[name] = direnvOnce()[name] ? "direnv" : "env";
     }
   }
   const missing = [...Object.keys(wanted), ...Object.keys(literals)].filter((name) => !env[name]);
-  return [env, missing];
+  return [env, missing, source];
 }
 
 /**

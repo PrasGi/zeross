@@ -23,9 +23,20 @@ Ground rules for this whole skill:
   options each. Put the recommended option first and label it "(Recommended)".
   Pre-fill detected values. Show the findings before you ask.
 - **Secrets:** tokens and passwords never go into files, argv, or your replies.
-  They go only into the OS keychain through `zeross secret set` (stdin).
-- **Language:** conversation follows the session. Every file and config value is
-  written in English.
+  They go only into the OS keychain through `zeross secret set` (stdin) or
+  `zeross secret import` (moved from an existing file). Never print a token's
+  length, prefix, suffix or hash in chat either.
+- **Commands the user runs:** put every command the user must run in its own fenced
+  code block, never inline in a sentence and never followed by punctuation. A copied
+  trailing `.` once created a wrong keychain item.
+- **Simple commands:** run one simple command per call. Avoid compound pipelines
+  (`&&`, `|`, `;`, subshells) when single calls work; permission systems often deny
+  compound commands.
+- **Report after the fact:** report an action as done only after its result came
+  back. Never announce "stored", "installed" or "connected" in advance.
+- **Language:** keep the session's conversation language for the whole run, also
+  after long tool output in English. Every file and config value is written in
+  English.
 - **CLI:** run `zeross <cmd> --json` and parse the output. If `zeross` is not on
   PATH, fall back to `npx -y zeross-cli <cmd>` (when `npx` exists). If neither
   works, stop and show the install options (end of this file).
@@ -78,13 +89,30 @@ Run `zeross detect --json` and summarize it in a short table:
 
 - apps: path, kind, stack, test and dev commands
 - monorepo yes/no
-- DB candidates, with evidence and env var **names**
-- tickets: GitHub repo, Jira keys
-- design-system candidates
+- DB candidates, with evidence, env var **names** and each env candidate's
+  `hostClass` (`local` / `docker` / `remote` / `production` / `unknown`; never host
+  values)
+- tickets: GitHub repo, Jira keys (`projectKeys` is already filtered to the keys
+  that really occur)
+- git: `defaultBranch`, `branches`, `recommendedBase`
+- design-system candidates (including token files such as `tokens.css`), and the
+  `ui.darkModeHint` / `ui.i18nHint` signals
+- `loginRouteCandidates`
 - existing `.claude` assets and name clashes
 
 Call out anything uncertain, e.g. a dev URL that is only a framework default
 (`urlSource: framework-default`).
+
+Before the interview, show these `existing.*` findings:
+
+- **`existing.denyConflicts`** (warning): for each `{ file, rule }`, say "This
+  committed deny rule will block every zero-* command that edits files in this
+  project." Suggest narrowing it through the team, e.g. `Edit(~/.ssh/**)` instead of
+  `Edit(~/**)`. Never edit those settings files yourself.
+- **`existing.projectRules`**: the project's own `.claude/rules/*.md` files. They
+  stay untouched and load alongside the zeross packs (see batch B).
+- **`existing.e2e`**: whether the project already has e2e tests, with its
+  `signals` (see batch B).
 
 ## Phase 3: Interview (team settings, asked once)
 
@@ -129,8 +157,17 @@ whose answer is already unambiguous from detection; state the assumed value inst
 - Strictness: `strict` (Recommended) or `standard`.
 - Comment policy: `none` / `exported` / `every-component`.
 - Test policy: `logic-and-components` / `logic-only`.
+- E2E tests (only when `existing.e2e.detected`): "This project already has e2e
+  tests. Follow the project's e2e conventions, or keep the zeross team rule (no new
+  e2e files)?" → **Follow the project's conventions** (`rules.e2e: "follow-project"`)
+  / **Keep the team rule** (`rules.e2e: "none"`). Recommend following the project
+  when its e2e suite is maintained (recent changes, a CI job among the `signals`).
+  Without existing e2e tests, don't ask: `rules.e2e` stays `"none"`.
 - Custom rules, free text such as "no `any`" or "every new component needs a
-  comment". Collect them as a list of short imperative sentences.
+  comment". Collect them as a list of short imperative sentences. When
+  `existing.projectRules` is not empty, offer this canned rule (Recommended):
+  "Where a project rule in .claude/rules/ conflicts with a zeross pack, the project
+  rule wins."
 - Guard hook (blocks builds, whole-suite or coverage test runs, force-pushes and
   pushes to protected branches): **On (Recommended)** / Off. Becomes `hooks` in the
   plan and `config.json → hooks.guard`.
@@ -148,10 +185,12 @@ whose answer is already unambiguous from detection; state the assumed value inst
 
 **C. UI review** (only if `zero-ui-review` is selected or auto-included, and an app
 has `kind` frontend/fullstack/mobile)
-- Is there a design system? If yes, which paths? Offer the detected candidates.
-  Free-text notes, e.g. "shadcn/ui + Tailwind tokens in `src/styles/tokens.css`".
+- Is there a design system? If yes, which paths? Offer the detected candidates,
+  including token files (`tokens.css` etc.), and pre-fill the notes from them, e.g.
+  "shadcn/ui + Tailwind tokens in `src/styles/tokens.css`".
 - Breakpoints: default 375×812 / 768×1024 / 1440×900, or custom.
-- Dark mode? i18n?
+- Dark mode? i18n? Pre-select **Yes** when `ui.darkModeHint` / `ui.i18nHint` from
+  detection is set, and name the evidence.
 - Extra UI rules (free text).
 
 **D. Docs and PR**
@@ -159,9 +198,14 @@ has `kind` frontend/fullstack/mobile)
   Docs are always created/updated by the three build/fix commands (team rule; a
   touched module without a doc gets a short stub), so there is no auto-update
   question. In a monorepo, an app may get its own `docsPath`.
-- PR base branch (default: the remote default branch).
-- Default reviewers. Recommend `PrasGi` when that login is a collaborator (check
-  with the GitHub MCP if it is already connected); otherwise ask.
+- PR base branch: recommend `git.recommendedBase` from detection (e.g. `dev` when
+  the team integrates there), then `git.defaultBranch`; offer other entries of
+  `git.branches`. Protected branches default to `main`, `master`, `develop` and
+  `dev`.
+- Default reviewers. If the GitHub MCP is already connected, list the repo's
+  collaborators with it first, and recommend `PrasGi` only if that login is one of
+  them. If the GitHub MCP is not connected yet, ask without a pre-selected
+  recommendation.
 - Close keywords on PRs: off (Recommended; uses "Refs") or on.
 
 **E. Capacity and executor (personal)**
@@ -183,13 +227,30 @@ has `kind` frontend/fullstack/mobile)
 **F. MCP**
 - Which roles to set up: GitHub, Jira, DB, Playwright. Recommend those the
   project needs, e.g. Jira only if Jira is a ticket platform.
-- GitHub/Jira scope:
-  - **User scope + workspace wrapper** (Recommended when `workspaceRoot` exists):
-    install once, and every repo under the workspace uses it. The token is
-    chosen per workspace.
-  - **Local (this project only)**.
+- GitHub/Jira: run `zeross mcp check github --json` and `zeross mcp check jira --json`
+  (read-only) first, then ask these as **separate questions** per role:
+  1. **Workspace root.** Offer doctor's `project.workspaceRoot` as "(Recommended)",
+     plus **Local (this project only)**. State the rule: one workspace = one GitHub
+     org + one Jira site. Projects of another org or Jira site need their own
+     workspace, e.g. a sub-folder such as `~/work/<org>/` as its root. With user
+     scope, the wrapper is installed once and every repo under the workspace root
+     uses the workspace's token.
+  2. **Server.** For each entry in `equivalents`, show its name, `scope`, `file` and
+     any `plaintextSecrets` (env var **names** holding literal secret values; flag
+     them and recommend moving them to the keychain). Options: **Install the zeross
+     wrapper** / **Reuse `<name>`**. Recommend reuse only for a connected equivalent
+     without plaintext secrets, and say that reuse becomes final only after its auth
+     test passes in phase 6.
+  3. **Token source** (only when the zeross wrapper is installed): **New token** /
+     **Move from an existing file** (an `.envrc` line or a literal env value in an
+     MCP config; uses `zeross secret import`) / **Already in the keychain**.
+     Recommend moving when `plaintextSecrets` or an existing `.envrc` export was
+     found.
 - DB: confirm the type, the env file and the env var **name** (from
-  `envCandidates`), plus any extra dev hosts that may be written to.
+  `envCandidates`). Recommend the env candidate whose `hostClass` is `local` or
+  `docker`. If the only candidates are `remote` (or `production`), say so plainly
+  and ask which hosts count as dev hosts (`db.devHosts`; every other host stays
+  read-only). Always ask the dev-hosts question when a `remote` candidate is chosen.
 - **Context7** (optional, Recommended): current library docs over MCP before using an
   external API. Personal, user scope, works in every project; installed in phase 6.
   Record the team's choice in `config.json → integrations.context7` (boolean).
@@ -204,12 +265,17 @@ has `kind` frontend/fullstack/mobile)
   - Fastest local login method: **OTP bypass** / **Dev login route** / **Magic link**
     / **Password** (pre-select what detection or the code suggests; "unknown" can be
     typed as free text, which leaves the template unfilled)
-  - Login URL: pre-fill `<apps[].dev.url>/login` or the detected login route
+  - Login URL: pre-fill `<apps[].dev.url>` + the route from the first
+    `loginRouteCandidates` entry (e.g. `apps/web/src/app/(auth)/sign-in/page.tsx` →
+    `/sign-in`); fall back to `<apps[].dev.url>/login` only when there is none
   - Test roles that exist (e.g. admin, member), with the notes the user gives
 
 ## Phase 4: Preview
 
-Write the plan JSON to a temp file in your scratchpad (never inside the repo):
+Write the plan JSON to a file in the session scratchpad. If the project forbids temp
+dirs (a project rule or deny pattern), write it to `.claude/zeross/local/plan.json`
+instead (gitignored by the zeross block) and delete it right after phase 5a, so it is
+never committed. Never anywhere else in the repo.
 
 ```json
 {
@@ -222,10 +288,10 @@ Write the plan JSON to a temp file in your scratchpad (never inside the repo):
       "dev": { "url": "http://localhost:3000", "command": "pnpm dev" } } ] },
     "tickets": { "platforms": ["jira", "github"], "jira": { "site": "https://acme.atlassian.net", "projectKeys": ["VTX"] },
                  "github": { "repo": "acme/web" } },
-    "git": { "baseBranch": "main" },
+    "git": { "baseBranch": "dev" },
     "pr": { "defaultReviewers": ["PrasGi"], "closeKeywords": false },
     "rules": { "packs": ["fe-core", "fe-react-next"], "strictness": "strict", "commentPolicy": "none",
-               "testPolicy": "logic-and-components" },
+               "testPolicy": "logic-and-components", "e2e": "none" },
     "ui": { "designSystem": { "exists": true, "paths": ["src/components/ui"], "notes": "" },
             "darkMode": false, "i18n": false },
     "docs": { "path": "docs" },
@@ -245,24 +311,30 @@ Write the plan JSON to a temp file in your scratchpad (never inside the repo):
   by app kind; single app: no scoping). It is stored as `config.json → rules.scopes`.
 - `"hooks": true` installs the guard hook and is stored as `config.json → hooks.guard`
   (default true); `false` leaves the hook out, and `/zero-update` respects that.
+- `rules.e2e` is `"none"` unless batch B chose `"follow-project"`.
 - In join mode there is no plan. Skip to phase 5 (5a-2 when login answers were collected, then 5b).
 
-Run `zeross apply --plan <file> --dry-run --json` and show:
+Run `zeross apply --plan <file> --dry-run --json`. Before the approval question,
+**always** show the preview as a table (one row per item, nothing summarized away):
 
-- counts per action
-- **conflicts**: files that exist and aren't ours, which stay untouched. Offer
-  to skip them, or to have the user rename their file first.
-- **modified**: team-edited files, where a `.zeross-new` will be written beside them
-- `autoIncluded`: skills added as dependencies of the selected components
-- the rule files under `.claude/rules/zeross/`, with their `paths:` scopes in a monorepo
-- merges into `.claude/settings.json`, `.mcp.json` and `.gitignore`
+| Area | What to show |
+|---|---|
+| Counts | files per action (create / update / sidecar / skip) |
+| Rule files | every file under `.claude/rules/zeross/`, with its `paths:` scope (or "session start") |
+| `.claude/settings.json` | the hook entry merged in (or "none" when the guard hook is off) |
+| `.mcp.json` | the server entries added |
+| `.gitignore` | the zeross marker block added |
+| Conflicts | files that exist and aren't ours; they stay untouched. Offer to skip them, or to have the user rename their file first |
+| `.zeross-new` sidecars | team-edited files, where a `.zeross-new` will be written beside them |
+| `autoIncluded` | skills added as dependencies of the selected components |
 
-Ask for approval: **Apply** (Recommended) / **Change answers** / **Cancel**.
+Then ask for approval: **Apply** (Recommended) / **Change answers** / **Cancel**.
 
 ## Phase 5: Apply
 
 **5a. Team files** (skipped in join mode): run `zeross apply --plan <file> --json`.
-Report the result in one short list, including `autoIncluded`.
+Report the result in one short list, including `autoIncluded`. If the plan was
+written to `.claude/zeross/local/plan.json`, delete that file now.
 
 **5a-2. Login knowledge** (when batch G collected login answers): build the new
 `.claude/zeross/knowledge/auth-login.md` content from them, replacing the template's
@@ -293,61 +365,135 @@ For each selected role, follow this order: **check → (reuse | install) → tes
 record**. When something fails, say exactly which step failed and what the user
 can do. Never claim success without a passing test.
 
+Credentials of the workspace wrapper (GitHub, Jira) are resolved in this order:
+**OS keychain → the workspace root's direnv `.envrc` → the environment**. An ambient
+shell variable such as `GITHUB_PERSONAL_ACCESS_TOKEN` or `JIRA_API_TOKEN` no longer
+overrides the workspace's keychain item.
+
 **GitHub**
 
-1. Run `zeross mcp check github --json`. If `configured.connected` → go to step 7.
-   If `equivalents` has a connected server, e.g. a `github` server the user already
-   has, ask: **Reuse `<name>`** (Recommended) / **Install the zeross wrapper**.
-   On reuse, run `zeross profile set mcpRoles.github='"<name>"'`, then test and stop.
-2. Token: a fine-grained PAT at <https://github.com/settings/personal-access-tokens/new>.
-   - Resource owner: the org.
-   - Repositories: the workspace repos, or all.
-   - Permissions: **Contents: Read and write**, **Pull requests: Read and write**,
-     **Issues: Read and write**, **Metadata: Read**. Optional: Actions: Read,
-     Commit statuses: Read.
-   - Note that an org may need to approve fine-grained tokens.
-3. Resolve the keychain service name. The workspace name is
-   `basename(workspaceRoot)` for user scope, or the project name for local. Run
+1. **Check.** Use the `zeross mcp check github --json` result from batch F (re-run it
+   if anything changed). If `configured.connected` → go to step 7.
+2. **Reuse** (when batch F chose an equivalent): show its `scope` and `file`, and
+   flag any `plaintextSecrets`. Test it **in this session** through its own tools
+   (`zeross mcp test` only covers the zeross wrapper): call its `get_me` tool, then
+   read the project repo (`config.tickets.github.repo`). "Connected" in `claude mcp list`
+   is not proof of access. Only when both succeed, run
+   `zeross profile set mcpRoles.github='"<name>"'` and stop. When either fails, say so
+   and offer the zeross wrapper instead.
+3. **Keychain service.** The workspace name is `basename(workspaceRoot)` for user
+   scope, or the project name for local. Run
    `zeross mcp add github --scope <user|local> --workspace-root <dir> --workspace-name <name> --dry-run --json`
    and keep its `keychainService`. The CLI lowercases and sanitizes the name, so
    always use this value; never build the name yourself. Refs such as
-   `keychain:<keychainService>` are not secrets and may be shown.
-4. Store the token under `<keychainService>`. Ask which way:
-   - **Own terminal** (Recommended, the token never enters the chat): the user runs
-     `zeross secret set <keychainService>` and pastes at the hidden prompt.
-   - **Paste in chat**: warn that it stays in this conversation's history. Then
-     store it through stdin only:
+   `keychain:<keychainService>` are not secrets and may be shown. If the dry run
+   already returns `warnings` (the repo owner differs from the GitHub org this
+   workspace holds), stop and ask: one workspace = one GitHub org + one Jira site,
+   so this project needs its own workspace root (e.g. a sub-folder).
+4. **Token**, by the token source chosen in batch F:
+   - **New token.** A fine-grained PAT at
+     <https://github.com/settings/personal-access-tokens/new>:
+     - Resource owner: the org (not the personal account).
+     - Repositories: the workspace repos, or all.
+     - Permissions: **Contents: Read and write**, **Pull requests: Read and write**,
+       **Issues: Read and write**, **Metadata: Read**. Optional: Actions: Read,
+       Commit statuses: Read.
+     - An org may need to approve fine-grained tokens before they work.
+
+     Then ask how to store it under `<keychainService>`:
+     - **Own terminal** (Recommended, the token never enters the chat). Show the
+       command in its own block, with the real service name filled in, and ask the
+       user to paste the token at the hidden prompt:
+
+       ```bash
+       zeross secret set <keychainService>
+       ```
+
+     - **Paste in chat**: warn that it stays in this conversation's history. Then
+       store it through stdin only:
+
+       ```bash
+       zeross secret set <keychainService> --json <<'ZEROSS_SECRET'
+       <token>
+       ZEROSS_SECRET
+       ```
+
+       Never echo it back or repeat it.
+   - **Move from an existing file.** Show the exact command in its own block, e.g.
+     for an `.envrc` export:
 
      ```bash
-     zeross secret set <keychainService> --json <<'ZEROSS_SECRET'
-     <token>
-     ZEROSS_SECRET
+     zeross secret import <keychainService> --from-envrc <path/to/.envrc> --var GITHUB_PERSONAL_ACCESS_TOKEN
      ```
 
-     Never echo it back or repeat it.
-5. Run the same `zeross mcp add github …` command without `--dry-run`.
-6. Auto-load with `.envrc`, if direnv is installed and the user wants it:
+     or for a literal env value in an MCP config (`plaintextSecrets` from the check):
+
+     ```bash
+     zeross secret import <keychainService> --from-mcp-json <path/to/file> --server <name> --env GITHUB_PERSONAL_ACCESS_TOKEN
+     ```
+
+     Run it after the user agrees (it never prints the value), then recommend that
+     the user removes the literal value from the source file. Never edit or delete
+     it yourself.
+   - **Already in the keychain.** Run `zeross secret get-ref <keychainService> --json`
+     to confirm the item exists. If the token sits under another `zeross-*` item,
+     test that item with `zeross mcp test github --service <name> --json` and, when
+     it passes, use the import or a fresh `zeross secret set` to put it under
+     `<keychainService>`.
+
+   `zeross secret set` accepts only names matching `^zeross-[a-z0-9]+(-[a-z0-9]+)*$`
+   that a workspace, `local.json` or a known pattern references, so a copied
+   trailing `.` or `-` is rejected instead of creating a stray item. Report the
+   result (`ref`, `replaced`) only after it came back.
+5. **Install.** Run the same `zeross mcp add github …` command without `--dry-run`.
+   Show `workspace.action` (`created` or `updated`, with the workspace `name` and
+   `root`) and every entry of `warnings`.
+6. **Auto-load with `.envrc`**, if direnv is installed and the user wants it:
    `zeross secret envrc --dir <workspace or project root> --export GITHUB_PERSONAL_ACCESS_TOKEN=keychain:<keychainService> --allow --json`.
-   For a project-local `.envrc`, confirm `.envrc` is gitignored first.
-7. Run `zeross mcp test github --repo <owner/repo> --json`. Expect `ok: true`, a
-   login, and `repoStatus: 200`. A `403`/`404` on the repo means missing repo
-   access or a missing org approval for the token.
+   The zeross block starts with a comment line explaining that the values come from
+   the OS keychain. For a project-local `.envrc`, confirm `.envrc` is gitignored first.
+7. **Test.** Run `zeross mcp test github --json` (`--repo` defaults to
+   `config.tickets.github.repo`). Expect `ok: true`, a login and `repoStatus: 200`.
+   Also show `tokenKind` (`fine-grained` / `classic` / `unknown`, from the prefix
+   only), `source` (`keychain` / `direnv` / `env`) and `orgStatus`.
+   - `envOverride: true`: an environment variable of the same name with a
+     **different** value is set in this shell (compared by hash; no value is shown).
+     The wrapper ignores it, but other tools started from this shell still use the
+     old token. Recommend removing that export from the shell profile (e.g.
+     `~/.zshrc`), or starting Claude Code from a clean terminal.
+   - A `404` on the repo comes with a `hint`: usually the token's resource owner is
+     the personal account instead of the org, or the org has not approved the token
+     yet. Show the hint and its settings URL as given.
+   - A `403` means missing repo access or permissions.
 
 **Jira** follows the same steps, with these differences:
 
 - The Jira server is the third-party `mcp-atlassian` (Python), launched with
-  `uvx mcp-atlassian==<pin>`, so it needs `uv`. Check `command -v uvx` before
-  step 2; if it is missing, ask the user to install uv (`brew install uv`, or
-  <https://docs.astral.sh/uv/>) and re-check. GitHub, DB and Playwright don't need it.
+  `uvx mcp-atlassian==<pin>`, so it needs `uv`. Run `command -v uvx` before step 3.
+  If it is missing, ask the user to install uv (or see <https://docs.astral.sh/uv/>)
+  and re-check:
+
+  ```bash
+  brew install uv
+  ```
+
+  GitHub, DB and Playwright don't need it.
 - The token comes from <https://id.atlassian.com/manage-profile/security/api-tokens>.
 - Resolve the keychain service with
   `zeross mcp add jira --scope … --jira-url https://<site>.atlassian.net --jira-username <email> --dry-run --json`
   and use its `keychainService` (normally `zeross-jira-<workspace>`, lowercased and
-  sanitized) for `zeross secret set` and `.envrc`. Then run the same command without
-  `--dry-run`.
+  sanitized) for `zeross secret set`, `zeross secret import` and `.envrc`. Then run the
+  same command without `--dry-run`. A warning that the Jira site differs from the
+  workspace's `jira.url` means this project belongs in another workspace.
+- For **Move from an existing file**, import with `--var JIRA_API_TOKEN` or
+  `--env JIRA_API_TOKEN`.
 - In `.envrc`, export `JIRA_API_TOKEN=keychain:<keychainService>`, `JIRA_URL=…` and
   `JIRA_USERNAME=…`.
-- Test with `zeross mcp test jira --json`.
+- Test with `zeross mcp test jira --json`. It also checks every
+  `config.tickets.jira.projectKeys` entry (`projects: { KEY: status }`), and `ok` is
+  true only when all of them are visible. A key that is not visible means the token's
+  user lacks access to that project, or the site is wrong. `source` and
+  `envOverride` mean the same as for GitHub.
 - If a claude.ai Atlassian connector shows up among the equivalents, mention it. The
   team standard is the API-token server, so recommend installing it unless the
   user prefers to reuse the connector.
@@ -365,14 +511,23 @@ can do. Never claim success without a passing test.
 **Playwright**
 
 1. If `playwrightChromium` is false, ask, then run `npx -y playwright install chromium`.
-2. Run `zeross mcp test playwright --no-claude --json`, then
+2. Run `zeross mcp check playwright --json`. When it reports `shadows` or
+   `shadowedBy`, the same server name exists in several scopes: explain that the
+   project-scope entry (`.mcp.json`) wins over the user-scope one once the project
+   server is approved, and that until then the other one is used.
+3. Run `zeross mcp test playwright --no-claude --json`, then
    `zeross profile set mcpRoles.playwright='"playwright"'`.
-3. Test-account passwords: for each role the user wants, the user stores the
-   password in their own terminal with `zeross secret set zeross-test-<project>-<role>`
-   (lowercase kebab-case). Run `zeross secret get-ref <service> --json` to confirm it
-   and get the exact ref. Then record the refs with the whole-array procedure from
-   phase 5b: `zeross local get playwright.accounts --json`, add or update the entries,
-   and write back the whole array, e.g.
+4. Test-account passwords: for each role the user wants, the user stores the
+   password in their own terminal (lowercase kebab-case service name, filled in):
+
+   ```bash
+   zeross secret set zeross-test-<project>-<role>
+   ```
+
+   Run `zeross secret get-ref <service> --json` to confirm it and get the exact
+   ref. Then record the refs with the whole-array procedure from phase 5b:
+   `zeross local get playwright.accounts --json`, add or update the entries, and
+   write back the whole array, e.g.
    `zeross local set 'playwright.accounts=[{"role":"admin","email":"…","passwordRef":"keychain:zeross-test-<project>-admin"}]' --json`.
    At login time, sessions read the password only with
    `zeross secret reveal <service>`, which works only for `zeross-test-*` services.
@@ -386,19 +541,38 @@ servers ask for a one-time approval, which each teammate accepts once.
    connected (also under another name), offer **Reuse** (Recommended) and map it
    with `zeross profile set mcpRoles.context7='"<name>"'`.
 2. API key (optional, higher rate limits): ask **No key (Recommended)** / **Add a
-   key**. With a key, the user runs `zeross secret set zeross-context7` in their
-   own terminal (or pastes it for the stdin heredoc, with the transcript warning).
+   key**. With a key, the user runs this in their own terminal (or pastes it for
+   the stdin heredoc, with the transcript warning):
+
+   ```bash
+   zeross secret set zeross-context7
+   ```
+
    The key never goes into `~/.claude.json`.
 3. Run `zeross mcp add context7 --json`, then `zeross mcp test context7 --json`
    (`apiKey: present|absent`; the value is never printed).
 
 ## Phase 7: Verify and hand off
 
-1. Run `zeross verify --json`. Report every failing check with its fix.
+1. Run `zeross verify --json`. It also runs the role auth tests (repo, Jira project
+   keys); pass `--no-mcp` only when the user skipped MCP setup. Summarize it in three
+   lists:
+   - **✔ Working**: checks and roles that passed.
+   - **⚠ Action needed**: everything under `actionNeeded`, e.g. an MCP server
+     "Pending approval" (approve it in `/mcp` or on the next start) or a pending org
+     approval of the token. These are not failures.
+   - **✘ Failing**: every failing check, with its fix.
+
+   Then mention, with a recommendation each (never delete or edit anything yourself):
+   - `duplicates`: several active servers for one role. Recommend keeping the one
+     mapped in `mcpRoles` and disabling or removing the others.
+   - `plaintextSecrets`: MCP configs with literal secret env values (file, server,
+     env var names). Recommend moving each value with `zeross secret import` and
+     rotating the token if the file was ever shared or committed.
 2. Final summary:
    - installed components (with auto-included ones) and rule packs, with their
      scopes in a monorepo
-   - MCP roles with ✔ or ✘
+   - MCP roles as ✔ working / ⚠ action needed / ✘ failing
    - capacity and executor
    - files with `.zeross-new` sidecars that need a manual merge
 3. Next steps:
@@ -409,10 +583,18 @@ servers ask for a one-time approval, which each teammate accepts once.
    - Try it with `/zero-fix-bug <ticket>`.
    - **Recommend graphify** (do not install it): a local knowledge graph of the
      codebase that makes code understanding faster on large repos. If `tools.graphify`
-     from doctor is false, add one line: "Recommended: graphify — install it yourself
-     with `uv tool install graphifyy && graphify install`, then run `/graphify .`
-     (https://github.com/Graphify-Labs/graphify). zeross uses `graphify-out/` automatically
-     when it exists." Never run these commands for the user.
+     from doctor is false, add: "Recommended: graphify
+     (https://github.com/Graphify-Labs/graphify). Install it yourself, then run
+     `/graphify` on the project root in Claude Code. zeross uses `graphify-out/`
+     automatically when it exists.", followed by the install commands in their own
+     block:
+
+     ```bash
+     uv tool install graphifyy
+     graphify install
+     ```
+
+     Never run these commands for the user.
 4. Never commit for the user unless they ask in this session.
 
 ## Install options (when the CLI is missing)

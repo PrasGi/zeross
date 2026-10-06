@@ -1,6 +1,6 @@
 # Testing rules
 
-Applies to: every test file in every app (unit, integration, component). E2E test files are not written by default; see "No e2e test files".
+Applies to: every test file in every app (unit, integration, component). E2E test files follow `rules.e2e` (default: not written); see "No e2e test files".
 
 > Strictness follows `rules.strictness` (see `core.md`). Workflow details such as running tests and fail-proof are in `.claude/zeross/workflow/testing.md`.
 
@@ -12,13 +12,18 @@ Applies to: every test file in every app (unit, integration, component). E2E tes
 - Every bug fix ships a regression test that **failed before the fix**: test first (test → fail → fix → pass), or, when the fix already exists, one temporary mutation that is applied, tested and restored in a single command (see `.claude/zeross/workflow/testing.md`). Never `git stash`.
 - Every acceptance criterion maps to at least one test, or to a stated manual validation.
 
-## No e2e test files (team rule)
+## No e2e test files (team rule, `rules.e2e`)
 
-- **Tests = unit tests with edge cases. Validation = live, through the Playwright MCP** (`.claude/zeross/workflow/browser.md`).
-- **Never create e2e test files** unless the user explicitly asks in this session. That covers Playwright test files (`*.spec.ts` / `*.e2e.ts` importing `@playwright/test`), Cypress specs, HTTP e2e suites (`*.e2e-spec.ts`, `supertest` against the fully bootstrapped app and its real dependencies), Selenium/WebdriverIO, Detox/Maestro flows, and the equivalents in other stacks.
-- **Existing e2e files** may be updated only when the change breaks them. Do not extend them with new cases.
-- Helper code needed to drive the Playwright MCP (evaluate snippets, scratch scripts, data payloads) lives in a private temp location (the Claude Code session scratchpad, or `$TMPDIR`), **never in the repo**.
-- Controller, route and handler tests stay unit-level: the handler with its collaborators mocked at the boundary (in-process helpers such as `app.inject()`, `httptest`, `MockMvc` or `TestClient` are fine), never the fully bootstrapped app against real services.
+`config.json → rules.e2e` decides how e2e tests are handled:
+
+- **`none` (default, team rule):**
+  - **Tests = unit tests with edge cases. Validation = live, through the Playwright MCP** (`.claude/zeross/workflow/browser.md`).
+  - **Never create e2e test files** unless the user explicitly asks in this session. That covers Playwright test files (`*.spec.ts` / `*.e2e.ts` importing `@playwright/test`), Cypress specs, HTTP e2e suites (`*.e2e-spec.ts`, `supertest` against the fully bootstrapped app and its real dependencies), Selenium/WebdriverIO, Detox/Maestro flows, and the equivalents in other stacks.
+  - **Existing e2e files** may be updated only when the change breaks them. Do not extend them with new cases.
+- **`follow-project`:** the project already has e2e tests and the team keeps them. Follow the repo's existing e2e conventions (location, naming, framework, fixtures) when a change calls for an e2e case, and still validate live through the Playwright MCP. **Never run a whole e2e suite**: run only the related spec file(s), and only against local targets.
+- Either way:
+  - Helper code needed to drive the Playwright MCP (evaluate snippets, scratch scripts, data payloads) lives in a private temp location (the Claude Code session scratchpad, or `$TMPDIR`), **never in the repo**. If the project forbids temp dirs, use `.claude/zeross/local/` (gitignored) instead.
+  - Controller, route and handler tests stay unit-level: the handler with its collaborators mocked at the boundary (in-process helpers such as `app.inject()`, `httptest`, `MockMvc` or `TestClient` are fine), never the fully bootstrapped app against real services.
 
 ## Structure
 

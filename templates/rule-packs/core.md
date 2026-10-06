@@ -20,7 +20,7 @@ Applies to: every app and every task in this project.
 
 - Conventional Commits: `<type>(<scope>): <subject>`, imperative mood, ≤ 72 chars, no trailing period. Types: `feat fix docs style refactor perf test chore ci build revert`.
 - The body explains *why*. Breaking changes use a `BREAKING CHANGE:` footer. Ticket footer: `Refs PROJ-123`. Use `Closes` only when `pr.closeKeywords` is true.
-- Branches follow `git.branchPattern`. Never work on, commit to or push to `git.protectedBranches` (default `main`, `master`, `develop`). Never force-push. Never merge.
+- Branches follow `git.branchPattern`. Never work on, commit to or push to `git.protectedBranches` (default `main`, `master`, `develop`, `dev`). Never force-push. Never merge.
 - Commit, push or open a PR only when the user explicitly asks. A request such as "commit, push and open a PR into `release/x`" authorizes that whole sequence once. An approval to implement does not authorize any of them.
 - Stage only the task's files, by explicit path. Never `git add -A` or `git add .` with unrelated changes present.
 - Never `git stash`, `git checkout -- <file>`, `git reset` or `git clean` the user's work.
@@ -46,7 +46,7 @@ This section and "Git" above are the canonical copy of the git, build and test s
 
 - **No builds** unless the user explicitly asks in this session: `npm|pnpm|yarn|bun run build`, `next build`, `nuxt build`, `tsc -b`, `docker build`, `gradle build`, `mvn package`, `go build ./...` for release artifacts, and the equivalents. Type-check single files or rely on the related tests instead.
 - **Tests:** run only the related test files. Never the whole suite, never `--coverage`, unless the user asks.
-- **No e2e test files** unless the user explicitly asks: see "No e2e test files" in `testing.md`.
+- **No e2e test files** unless the user explicitly asks or `config.json → rules.e2e` is `follow-project`: see "No e2e test files" in `testing.md`.
 - No new dependencies without saying why. Prefer what is already installed. Note known CVEs for new packages (`npm audit`, `pip-audit`, `govulncheck`, `composer audit`), scoped to the change.
 - Never start long-running servers, and never write to non-local data, without consent (`.claude/zeross/workflow/browser.md`, `.claude/zeross/workflow/data-safety.md`).
 - **Guard hook.** When enabled (`config.json → hooks.guard`, default true), `.claude/zeross/bin/zeross-guard.mjs` (a PreToolUse hook on Bash) blocks builds, whole-suite test runs, `--coverage`, force-pushes and pushes to protected branches. It is a guardrail, not permission: a command it misses is still forbidden. If it blocks a command you did not need, narrow the command. Use the escape hatches **only when the user explicitly asked for that exact action in this session**, never on your own initiative or to get past a block:

@@ -70,7 +70,7 @@ Call `EnterPlanMode` (if it is only listed as a deferred tool, load it first wit
    labels, shared copy constant, existing dialog reused).
 7. **Files** — create/modify list, grouped by app.
 8. **Test plan** — unit tests per AC (test first), edge and permission cases,
-   prove-fail method. No e2e test files (`testing.md`).
+   prove-fail method. E2E files per `rules.e2e` (`testing.md`).
 9. **Validation plan per AC** — live Playwright MCP steps, account role, expected result.
 10. **Risks, flags and rollout** — feature flag, migration order, rollback.
 11. **Docs** — modules whose docs will be updated, created (new module) or stubbed.
@@ -105,7 +105,7 @@ Per `executor.md`:
   Playwright instances than `capacity` allows.
 - Each task follows **test → fail → implement → pass** (`testing.md`): write its
   unit tests first and record the failing run, implement, rerun and record the pass;
-  edge cases, related test files only, lint changed files only. No e2e test files.
+  edge cases, related test files only, lint changed files only. E2E files per `rules.e2e`.
   The mutation fallback applies only when code already exists before its test.
 - After each wave: review every worker diff yourself, run that wave's related
   tests, tick completed tasks in the saved plan. Do not start the next wave on a
@@ -124,7 +124,7 @@ task's file list (the review stays inside it):
 ## 6. Validate per AC (Playwright)
 
 Per `browser.md`: run the validation plan for every AC live through the
-Playwright MCP, plus one negative and one neighboring path (no e2e test files;
+Playwright MCP, plus one negative and one neighboring path (e2e files per `rules.e2e`;
 scratch helpers stay outside the repo). Parallel validation only with `--isolated`
 instances and within `capacity.playwright`. Screenshots to `.playwright-mcp/`.
 State any limit.

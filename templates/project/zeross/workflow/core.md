@@ -81,7 +81,11 @@ Never hard-code MCP server names. Resolve each role through `~/.claude/zeross/pr
 Read these once per task, before discovery. **Skip any file already in context.**
 
 1. `.claude/zeross/config.json`. **Required.** If it is missing, stop and tell the user to run `/zeross`.
-2. `~/.claude/zeross/profile.json`: `capacity`, `executor`, `mcpRoles`. If it is missing, assume serial execution and ask the user to run `/zeross` for personal setup.
+2. `~/.claude/zeross/profile.json`: `capacity`, `executor`, `mcpRoles`. If it is missing, assume serial execution and tell the user to run this in a terminal (skip it if `zeross --version` works), then `/zeross` for personal setup:
+
+   ```bash
+   npm i -g zeross-cli && zeross install
+   ```
 3. `.claude/zeross/local.json`, if present: Playwright accounts and DB grants. Never print secrets or grant details beyond host names; keychain refs (`keychain:…`) are not secrets and may be shown.
 4. `.claude/zeross/workflow/core.md` (this file) and `questions.md`. Load the others when their phase starts:
    - `tickets.md`: intake

@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
@@ -66,4 +67,59 @@ test("malformed manifests do not crash detection", () => {
   const root = makeProject();
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: "dev", dependencies: ["next"] }));
   assert.doesNotThrow(() => runDetect(root));
+});
+
+test("DB env candidates get a host class without exposing the URL", () => {
+  const root = makeProject();
+  fs.writeFileSync(path.join(root, "docker-compose.yml"), "services:\n  postgres:\n    image: postgres:16\n");
+  fs.writeFileSync(path.join(root, ".env"), [
+    "LOCAL_DATABASE_URL=postgres://u:s3cr3t@72.61.141.67:5432/app",
+    "DOCKER_DB_URL=postgres://u:p@postgres:5432/app",
+    "DEV_DB_URL=postgres://u:p@localhost:5432/app",
+    "REF_DB_URL=postgres://${DB_HOST}/app",
+  ].join("\n"));
+  const out = runDetect(root);
+  const pg = out.db.candidates.find((c) => c.type === "postgres");
+  const byVar = Object.fromEntries(pg.envCandidates.map((e) => [e.envVar, e.hostClass]));
+  assert.deepEqual(byVar, { LOCAL_DATABASE_URL: "remote", DOCKER_DB_URL: "docker", DEV_DB_URL: "local", REF_DB_URL: "unknown" });
+  assert.ok(!JSON.stringify(out).includes("72.61.141.67") && !JSON.stringify(out).includes("s3cr3t"));
+});
+
+test("only dominant Jira keys survive, branch names weigh more", () => {
+  const root = makeProject();
+  const git = ["-C", root, "-c", "user.email=a@b", "-c", "user.name=a"];
+  for (let i = 0; i < 10; i++) execFileSync("git", [...git, "commit", "--allow-empty", "-qm", `feat: EP-${i} work`]);
+  for (const msg of ["chore: API-1 note", "chore: API-2 note", "fix: CODE-3", "fix: CODE-4"]) execFileSync("git", [...git, "commit", "--allow-empty", "-qm", msg]);
+  assert.deepEqual(runDetect(root).tickets.jira, { projectKeys: ["EP"] });
+});
+
+test("existing project rules, e2e suites, login routes and blocking deny rules are reported", () => {
+  const root = makeProject();
+  const put = (/** @type {string} */ rel, /** @type {string} */ text) => {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), text);
+  };
+  put(".claude/rules/frontend.md", "# FE");
+  put(".claude/rules/zeross/core.md", "# ours");
+  put("e2e/login.spec.ts", "");
+  put("src/app/(auth)/sign-in/page.tsx", "export default function P() {}");
+  put(".claude/settings.json", JSON.stringify({ permissions: { deny: ["Edit(~/**)", "Edit(~/.ssh/**)", "Read(.env)"] } }));
+  const out = runDetect(root);
+  assert.deepEqual(out.existing.projectRules, [".claude/rules/frontend.md"]);
+  assert.equal(out.existing.e2e.detected, true);
+  assert.ok(out.loginRouteCandidates.includes("src/app/(auth)/sign-in/page.tsx"));
+  const denied = out.existing.denyConflicts.map((d) => d.rule);
+  assert.ok(denied.includes("Edit(~/**)") || root.startsWith(os.homedir()) === false);
+  assert.ok(!denied.includes("Edit(~/.ssh/**)"));
+});
+
+test("a worker under apps/ with a long-running script is a backend", () => {
+  const root = path.join(tempDir(), "mono2");
+  fs.mkdirSync(path.join(root, "apps", "workers"), { recursive: true });
+  fs.writeFileSync(path.join(root, "pnpm-workspace.yaml"), "packages: ['apps/*']\n");
+  fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ devDependencies: { eslint: "9" } }));
+  fs.writeFileSync(path.join(root, "apps", "workers", "package.json"), JSON.stringify({ scripts: { dev: "tsx watch src/main.ts", lint: "eslint ." }, devDependencies: { vitest: "3" } }));
+  const [app] = runDetect(root).apps;
+  assert.equal(app.kind, "backend");
+  assert.ok(app.lint.command.includes("eslint"));
 });

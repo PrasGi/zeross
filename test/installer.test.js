@@ -299,3 +299,11 @@ test("the envrc command rejects bad names, injections and secret-looking literal
 test("secret get-ref rejects invalid service names without crashing", async () => {
   assert.equal(await cli(["secret", "get-ref", "Zeross Test"]), 2);
 });
+
+test("the always-on workflow rule reminds a teammate without a profile how to set up", () => {
+  const root = makeProject();
+  apply(root);
+  const rule = read(at(root, ".claude", "rules", "zeross", "zeross.md"));
+  assert.ok(rule.includes("~/.claude/zeross/profile.json"));
+  assert.ok(rule.includes("npm i -g zeross-cli && zeross install"));
+});

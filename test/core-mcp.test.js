@@ -106,3 +106,54 @@ test("mcp add context7 --dry-run plans a user-scope wrapper", async () => {
   assert.equal(plan.keychainService, "zeross-context7");
   assert.ok(plan.command[1].endsWith("context7-mcp.mjs"));
 });
+
+test("service names: strict shape, zeross namespace, --force escape", async () => {
+  const { serviceProblem } = await import("../lib/secrets.js");
+  assert.match(String(serviceProblem("zeross-github-eterna.")), /invalid/);
+  assert.match(String(serviceProblem("zeross-github--x")), /invalid/);
+  assert.equal(serviceProblem("zeross-github-nusa-llc"), null);
+  assert.equal(serviceProblem("zeross-test-proj-admin"), null);
+  assert.match(String(serviceProblem("zeross-foo")), /--force/);
+  assert.equal(serviceProblem("zeross-foo", true), null);
+});
+
+test("secret import reads literals only and never from shell expansions", async () => {
+  const { literalFromEnvrc, literalFromMcpJson, SecretError } = await import("../lib/secrets.js");
+  const dir = tempDir();
+  fs.writeFileSync(path.join(dir, ".envrc"), [
+    "# comment",
+    'export GITHUB_PERSONAL_ACCESS_TOKEN="ghp_literal123" # old',
+    'export COMPUTED="$(security find-generic-password -w)"',
+  ].join("\n"));
+  assert.equal(literalFromEnvrc(path.join(dir, ".envrc"), "GITHUB_PERSONAL_ACCESS_TOKEN"), "ghp_literal123");
+  assert.throws(() => literalFromEnvrc(path.join(dir, ".envrc"), "COMPUTED"), SecretError);
+  assert.throws(() => literalFromEnvrc(path.join(dir, ".envrc"), "MISSING"), SecretError);
+  fs.writeFileSync(path.join(dir, ".mcp.json"), JSON.stringify({ mcpServers: { jira: { env: { ATLASSIAN_API_TOKEN: "ATATTliteral", REF: "${X}" } } } }));
+  assert.equal(literalFromMcpJson(path.join(dir, ".mcp.json"), "jira", "ATLASSIAN_API_TOKEN"), "ATATTliteral");
+  assert.throws(() => literalFromMcpJson(path.join(dir, ".mcp.json"), "jira", "REF"), SecretError);
+});
+
+test("MCP config scan reports plaintext secret names, never values", async () => {
+  const { scanMcpConfigs } = await import("../lib/mcp.js");
+  const root = tempDir();
+  fs.writeFileSync(path.join(root, ".mcp.json"), JSON.stringify({ mcpServers: {
+    github: { command: "npx", env: { GITHUB_PERSONAL_ACCESS_TOKEN: "ghp_plain" } },
+    safe: { command: "npx", env: { GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_PERSONAL_ACCESS_TOKEN}", MODE: "x" } },
+  } }));
+  const found = scanMcpConfigs(root).filter((d) => d.scope === "project");
+  const byName = Object.fromEntries(found.map((d) => [d.name, d.plaintextSecrets]));
+  assert.deepEqual(byName.github, ["GITHUB_PERSONAL_ACCESS_TOKEN"]);
+  assert.deepEqual(byName.safe, []);
+  assert.ok(!JSON.stringify(found).includes("ghp_plain"));
+});
+
+test("secret set rejects a trailing dot through the CLI", async () => {
+  const { main } = await import("../lib/cli.js");
+  const write = process.stdout.write;
+  process.stdout.write = () => true;
+  try {
+    assert.equal(await main(["secret", "set", "zeross-github-eterna."]), 2);
+  } finally {
+    process.stdout.write = write;
+  }
+});

@@ -53,16 +53,31 @@ launches with `uvx mcp-atlassian==<pin>`, so only users who enable Jira also nee
    Orca vs Claude Code, tools.
 2. **Install state**: fresh, already installed by a teammate (join mode: personal
    setup only), outdated, or partial.
-3. **Scan**: apps, stacks, monorepo layout, test/lint/dev commands, DB type, Jira
-   keys and GitHub repo, design-system candidates.
+3. **Scan**: apps, stacks, monorepo layout, test/lint/dev commands, DB type and
+   host class, Jira keys and GitHub repo, base-branch recommendation, design-system
+   and token files, login routes, existing project rules and e2e tests, and
+   committed permission deny rules that would block the zero-* commands.
 4. **Interview, once**: components (dependencies such as the reviews and the docs
    writer are auto-included), rule packs (expert FE/BE/DB defaults), custom rules,
    guard hook, UI review (design system, breakpoints), docs path, PR reviewers,
    capacity and executor, MCP choices, the fastest local login method.
 5. **Preview**, then apply. Nothing is written before you approve.
 6. **MCP**: GitHub and Jira (user scope per workspace or local), DB and
-   Playwright (project scope). Each is checked, installed or reused, then tested.
-7. **Verify** and hand off: commit `.claude/`, `.mcp.json`, `.gitignore`.
+   Playwright (project scope). Each is checked, installed or reused, then tested
+   (repo access, org approval, Jira project keys). Existing tokens can be moved from
+   `.envrc` or MCP configs into the keychain with `zeross secret import`.
+7. **Verify** and hand off: working / action needed / failing, plus duplicate MCP
+   servers and plaintext secrets in MCP configs. Then commit `.claude/`,
+   `.mcp.json`, `.gitignore`.
+
+### Workspaces (GitHub and Jira)
+
+One workspace = one GitHub org + one Jira site. Repos of another org or site get
+their own workspace root, e.g. a sub-folder; `zeross mcp add` warns when they would
+mix. The workspace wrapper resolves credentials **keychain → direnv of the
+workspace root → environment**, so an ambient `GITHUB_PERSONAL_ACCESS_TOKEN` or
+`JIRA_API_TOKEN` in your shell does not override the workspace's keychain item
+(`zeross mcp test` reports it as `envOverride`).
 
 ## Rules, tests and docs
 
@@ -74,7 +89,8 @@ launches with `uvx mcp-atlassian==<pin>`, so only users who enable Jira also nee
   files. zeross never edits `CLAUDE.md`.
 - **Tests are unit tests with edge cases**, written first (test → fail → fix →
   pass). **Validation is live** through the Playwright MCP. No e2e test files unless
-  you ask for them.
+  you ask for them, or the team sets `rules.e2e: "follow-project"` for a project that
+  already has e2e tests (then its conventions apply; only the related spec runs).
 - **Docs are always kept current** by the fix/build commands: affected module docs
   are updated with a Changelog entry, and a module without a doc gets a short stub.
 
@@ -93,6 +109,10 @@ launches with `uvx mcp-atlassian==<pin>`, so only users who enable Jira also nee
     `config.json` only gains new keys with defaults
 - **Secrets** live only in the OS keychain.
   - They are read from stdin and never put in argv, files or chat output.
+  - Service names must match `^zeross-[a-z0-9]+(-[a-z0-9]+)*$` and be referenced by
+    a workspace, `local.json` or a known pattern (`--force` overrides the latter).
+  - `zeross secret import` moves an existing literal token from `.envrc` or an MCP
+    config into the keychain without printing it.
   - `.envrc` (direnv) loads them from the keychain by reference.
   - The one exception is `zeross secret reveal <service>`, which works only for
     `zeross-test-*` services: local test-account passwords typed into the browser
@@ -129,8 +149,12 @@ See [`docs/architecture.md`](docs/architecture.md) for the full contracts.
 zeross install | uninstall [--project-scope] [--purge]
 zeross doctor | status | detect | verify            (all accept --json)
 zeross apply --plan plan.json [--dry-run]
-zeross mcp check|test|add <github|jira|db|playwright>
-zeross secret set|get-ref <service> | secret envrc --dir D --export VAR=keychain:<service>
+zeross verify [--no-mcp]                            (role auth tests run by default)
+zeross mcp check|test|add <github|jira|db|playwright|context7>
+zeross mcp test github [--repo owner/repo] [--service <keychain item>]
+zeross secret set|get-ref <service> [--force] | secret envrc --dir D --export VAR=keychain:<service>
+zeross secret import <service> --from-envrc <file> --var NAME
+zeross secret import <service> --from-mcp-json <file> --server <name> --env VAR
 zeross secret reveal <service>                      (zeross-test-* services only)
 zeross update check|diff|apply [--bump-pins]
 zeross profile get|set key=value | local get|set key=value

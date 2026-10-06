@@ -78,8 +78,8 @@ do not offer "stay".
 
 Per `testing.md` (→ "Prove the test fails"), for each `BUILD` and `PARTIAL` item:
 
-1. **Test first.** Write the unit tests for the requirement (unit tests only; no
-   e2e test files, per `testing.md`). Run them and record the failing output.
+1. **Test first.** Write the unit tests for the requirement (unit tests; e2e
+   files per `rules.e2e`, see `testing.md`). Run them and record the failing output.
 2. **Build.** Implement only `BUILD` and `PARTIAL` items, copying the chosen
    pattern. Stay within the rule packs; UI follows the design system in `ui.md`.
    Cover loading, empty, error and permission states for new UI.
@@ -101,7 +101,7 @@ task's file list (the review stays inside it):
 ## 7. Validate (Playwright)
 
 Per `browser.md`: exercise every requirement live through the Playwright MCP, plus
-one negative path and one neighboring path (no e2e test files; scratch helpers stay
+one negative path and one neighboring path (e2e files per `rules.e2e`; scratch helpers stay
 outside the repo). Screenshots to `.playwright-mcp/`. State any limit.
 
 ## 8. Docs

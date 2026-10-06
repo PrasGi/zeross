@@ -12,7 +12,7 @@ How to write, prove and run tests for a change: only the related files, with a p
 - Follow `.claude/rules/zeross/testing.md` for structure (AAA, naming, mocking).
 - **E2E tests follow `config.json → rules.e2e`** (canonical in `.claude/rules/zeross/testing.md` → "No e2e test files"):
   - `none` (default, team rule): tests are unit tests with edge cases; validation runs live through the Playwright MCP (`browser.md`). Never create Playwright/Cypress/supertest e2e files unless the user explicitly asks; update existing ones only when the change breaks them.
-  - `follow-project`: follow the repo's existing e2e conventions when a change calls for an e2e case. Still validate live through the Playwright MCP, and never run a whole e2e suite: only the related spec file(s).
+  - `follow-project`: when the touched app has an e2e setup, the user decides per task (the fix/build commands ask "Playwright MCP only, or also an e2e spec?" before the fix/build phase). Apps without e2e: no question, Playwright MCP only. Create or change an e2e spec only when they chose it, following the repo's e2e conventions; fixing a spec your change breaks needs no question. Always validate live through the Playwright MCP, and never run a whole e2e suite: only the related spec file(s).
   - Scratch helpers for the Playwright MCP live in the session scratchpad or `$TMPDIR`, never in the repo. If the project forbids temp dirs, use `.claude/zeross/local/` (gitignored).
 
 ## Edge cases (mandatory)

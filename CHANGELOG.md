@@ -3,6 +3,16 @@
 All notable changes to zeross. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [0.1.2] - 2026-10-07
+
+### Changed
+- With `rules.e2e: follow-project`, `/zero-fix-bug`, `/zero-build-small-feature` and `/zero-build-feature`
+  now ask before the fix/build phase whether final validation is the live Playwright MCP only or also an
+  e2e spec, and only when the touched app has an e2e setup. No e2e spec is created without that answer;
+  apps without e2e are validated through the Playwright MCP without a question.
+- CI: `actions/checkout` v7.0.1 and `actions/setup-node` v7.0.0 (Node 24 runtime), pinned by SHA,
+  replacing the deprecated Node 20 versions.
+
 ## [0.1.1] - 2026-10-06
 
 ### Fixed

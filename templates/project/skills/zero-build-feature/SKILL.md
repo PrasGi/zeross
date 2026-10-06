@@ -50,6 +50,13 @@ recommendation first, findings shown before asking. Repeat until no open questio
 remain. Typical decisions: scope cut, data model, API shape, permissions, rollout
 flag, empty/error behavior.
 
+When `config.json → rules.e2e` is `follow-project` and the touched app has an e2e setup
+(`e2e/` folder, `playwright.config.*`, a `test:e2e` script), one of these decisions is the
+**final validation method**: "live Playwright MCP only, or also e2e specs?" (name the
+spec files and scenarios per acceptance criterion). Recommend e2e only where the repo
+already covers the area with e2e. The plan's validation section records the answer;
+never add an e2e spec the user did not choose. With `rules.e2e: none`, do not ask.
+
 Destructive user actions follow "Destructive actions" in
 `.claude/rules/zeross/core.md` (ask when the confirmation behavior is unspecified;
 do not re-ask what the user already decided).

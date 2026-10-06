@@ -79,6 +79,17 @@ which source to branch from (recommended source first, with a one-line reason).
 Create the branch only if they chose a new one. Ask once. On a protected branch,
 do not offer "stay".
 
+**Final validation method** (only when `config.json → rules.e2e` is `follow-project` **and** the
+app you touch has an e2e setup, e.g. an `e2e/` folder, `playwright.config.*` or a `test:e2e` script;
+otherwise do not ask and validate with the Playwright MCP only): add
+a question to that same `AskUserQuestion` call — "Final validation: live Playwright MCP
+only, or also an e2e spec?" Options: **Playwright MCP only** / **Add or update an e2e
+spec** (name the spec file and the scenario). Recommend e2e only when the repo's
+conventions or the touched area already have e2e coverage for this flow; otherwise
+recommend MCP only. Never create or change an e2e spec without this answer; fixing an
+existing spec that your change breaks needs no question. With `rules.e2e: none`, do
+not ask: validation is MCP only.
+
 
 Per `testing.md` (→ "Prove the test fails"), for each `VALID` ticket:
 

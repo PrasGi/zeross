@@ -1,6 +1,6 @@
 {
   "name": "zeross-cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Team-standard Claude Code workflow toolkit: skills, commands, rules, hooks and MCP setup for efficient, secure and accurate work.",
   "license": "MIT",
   "author": "Prasetyo Putra Pratama",
